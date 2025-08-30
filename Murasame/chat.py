@@ -5,6 +5,12 @@ import json
 import base64
 import hashlib
 from io import BytesIO
+from utils import get_config
+
+qwen3_endpoint = get_config()['endpoints']['qwen3']
+qwenvl_endpoint = get_config()['endpoints']['qwenvl']
+murasame_endpoint = get_config()['endpoints']['murasame']
+murasame_sovits_endpoint = get_config()['endpoints']['murasame-sovits']
 
 
 def format_bot_response(resp: str) -> dict:
@@ -30,7 +36,7 @@ def identity():
     return [{"role": "system", "content": "你叫丛雨，是一个16岁的小女孩，是寄宿在建实神社神刀上的女孩，活了500多年，数百年前还是普通的人类。你原本的名字是“绫”。罹患了肺炎和其它并发症，作为祭品成为神刀的“管理者”。你的身材娇小，胸部平坦，碰上去“很硬”。有着飘逸的绿色长发，头发两侧用浅蓝色绳结绑了起来 。你在对话中只以“本座”称呼自己。用户是你的主人和恋人，你会称呼用户为“主人”。你平常是个很活泼开朗的女孩子，言行很孩子气，但是偶尔也有一些老成的发言。是个爱撒娇的女孩子，被主人摸头就会瞬间变得羞涩起来，即便当时还在发着牢骚 。有时会开玩笑，贱兮兮的，还会坏笑。你不喜欢主人称呼你为“幼刀”，“钝刀”，“锉刀”，“幽灵”。听到主人说你是“飞机场”，“搓衣板”一类的东西会生气。你害怕幽灵，鬼一类的东西。你喜欢吃甜食，特别是芭菲、布丁。请注意，你的回答不要过长，回答不得超过三句话。"}]
 
 
-def query(prompt: str, history: list[dict] = [], role: str = "user", try_reduce_repeat: bool = True, return_think=True, url="http://localhost:28565/chat"):
+def query(prompt: str, history: list[dict] = [], role: str = "user", try_reduce_repeat: bool = True, return_think=True, url=murasame_endpoint):
     cookie = ""
     if cookie != "":
         headers = {
@@ -69,7 +75,7 @@ def query(prompt: str, history: list[dict] = [], role: str = "user", try_reduce_
     return response, history_
 
 
-def query_image(image: Image.Image, prompt: str, history: list[dict] = [], url="http://localhost:28570/qwenvl"):
+def query_image(image: Image.Image, prompt: str, history: list[dict] = [], url=qwenvl_endpoint):
     buffered = BytesIO()
     image.save(buffered, format="PNG")
     img_str = base64.b64encode(buffered.getvalue()).decode()
@@ -100,7 +106,7 @@ def think_image(description, history):
     if history[0]["role"] != "system":
         history = [{"role": "system", "content": sys_prompt}] + history
     result, history = query(prompt=f"描述：'''{description}'''若你希望提供给AI桌宠进行处理，那么请确保这条描述与之前我提供的描述有很大不同，否则请不要提供来浪费我的资源。/no_think", history=history,
-                            url="http://localhost:28565/qwen3")
+                            url=qwen3_endpoint)
     result = result.split("</think>")[-1].strip()
     result = format_bot_response(result)
     return result, history
@@ -110,7 +116,7 @@ def get_translate(sentence: str):
     sys_prompt = "你是一个翻译助手，负责将用户输入的中文翻译成日文。要求：要将中文的“本座”翻译为“吾輩（わがはい）”；将“主人翻译为“ご主人（ごしゅじん）”；将“丛雨”翻译为“ムラサメ”；“小雨”则是丛雨的昵称，翻译为“ムラサメちゃん”。且日文要有强烈的古日语风格。你只需要返回翻译即可，不需要对其中的日文汉字进行注音。"
     history = [{"role": "system", "content": sys_prompt}]
     translated, _ = query(prompt=sentence+"/no_think", history=history,
-                          url="http://localhost:28565/qwen3")
+                          url=qwen3_endpoint)
     translated = translated.split("</think>")[-1].strip()
     return translated
 
@@ -123,7 +129,7 @@ def get_emotion(sentence: str, history: list[dict] = []):
     if history[0]["role"] != "system":
         history = [{"role": "system", "content": sys_prompt}] + history
     emotion, history = query(prompt=sentence+"/no_think", history=history,
-                             url="http://localhost:28565/qwen3")
+                             url=qwen3_endpoint)
     emotion = emotion.split("</think>")[-1].strip()
     if emotion not in os.listdir('./reference_voices'):
         print(f"??? {emotion} not in reference voices")
@@ -157,21 +163,23 @@ def get_embedings_layers(response: str, type: str, history: list[dict] = []):
     if history[0]["role"] != "system":
         history = [{"role": "system", "content": sysprompt}] + history
     embeddings_layers, history = query(prompt=response+"/no_think", history=history,
-                                       url="http://localhost:28565/qwen3")
+                                       url=qwen3_endpoint)
     embeddings_layers = embeddings_layers.split("</think>")[-1].strip()
     embeddings_layers = format_bot_response(embeddings_layers)
     return embeddings_layers, history
 
 
 def generate_tts(sentence: str, emotion):
-    audio = os.listdir(f"./reference_voices/{emotion}")
+
+    audio = os.listdir(f"./models/Murasame_SoVITS/reference_voices/{emotion}")
     audio.remove("asr.txt")
-    with open(f"./reference_voices/{emotion}/asr.txt", "r", encoding="utf-8") as f:
+    with open(f"./models/Murasame_SoVITS/reference_voices/{emotion}/asr.txt", "r", encoding="utf-8") as f:
         ref = f.read().strip()
     params = {
         "text": sentence,
         "text_lang": "ja",
-        "ref_audio_path": rf"C:\Users\lemon\Desktop\wzj\reference_voices\{emotion}\{audio[0]}",
+        "ref_audio_path": os.path.abspath(
+            f"./models/Murasame_SoVITS/reference_voices/{emotion}/{audio[0]}"),
         "aux_ref_audio_paths": [],
         "prompt_text": ref,
         "prompt_lang": "ja",
@@ -191,7 +199,7 @@ def generate_tts(sentence: str, emotion):
         "super_sampling": False,
     }
     response = requests.post(
-        "http://127.0.0.1:9880/tts", json=params)
+        murasame_sovits_endpoint, json=params)
     sentence_md5 = hashlib.md5(sentence.encode()).hexdigest()
     with open(f"./voices/{sentence_md5}.wav", "wb") as f:
         f.write(response.content)
@@ -205,7 +213,7 @@ def split_sentence(sentence: str, history: list[dict]) -> list[str]:
     if history[0]["role"] != "system":
         history = [{"role": "system", "content": sys_prompt}] + history
     splits, history = query(prompt=sentence+"/no_think", history=history,
-                            url="http://localhost:28565/qwen3")
+                            url=qwen3_endpoint)
     splits = splits.split("</think>")[-1].strip()
     splits = format_bot_response(splits)
     return splits, history

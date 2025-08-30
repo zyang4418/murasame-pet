@@ -4,6 +4,7 @@ import uvicorn
 import requests
 import json
 import torch
+from Murasame.utils import get_config
 from transformers import AutoModelForCausalLM, AutoTokenizer, TextStreamer
 
 api = FastAPI()
@@ -95,7 +96,7 @@ async def create_qwen3_chat(request: Request):
         history = history + [{'role': role, 'content': prompt}]
 
     response = requests.post(
-        "http://127.0.0.1:11434/api/chat",
+        f"{get_config()['endpoints']['ollama']}/api/chat",
         json={"model": "qwen3:14b", "messages": history,
               "stream": False, "options": {"keep_alive": -1}},
 
@@ -130,7 +131,7 @@ async def create_qwenvl_chat(request: Request):
         history = history + [{'role': 'user', 'content': prompt}]
 
     response = requests.post(
-        "http://127.0.0.1:11434/api/chat",
+        f"{get_config()['endpoints']['ollama']}/api/chat",
         json={"model": "qwen2.5vl:7b", "messages": history,
               "stream": False, "options": {"keep_alive": -1}},
 
