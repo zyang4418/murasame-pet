@@ -13,10 +13,8 @@ import time
 import sys
 import pyautogui
 
-
 def wrap_text(text, width=12):
     return '\n'.join(textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False))
-
 
 class Murasame(QLabel):
     def __init__(self):
@@ -120,7 +118,7 @@ class Murasame(QLabel):
             if event.y() > 277:
                 self.input_mode = True
                 self.input_buffer = ""
-                self.display_text = "【 LemonQu 】\n  ..."
+                self.display_text = "【ご主人】\n  ..."
                 self.update()
                 return
 
@@ -148,7 +146,7 @@ class Murasame(QLabel):
             self.head_press_x = None
             self.setCursor(Qt.ArrowCursor)
 
-    def show_text(self, text: str, x_offset: int = 140, y_offset: int = -100, typing: bool = True, typing_prefix: str = "【 丛雨 】\n  "):
+    def show_text(self, text: str, x_offset: int = 140, y_offset: int = -100, typing: bool = True, typing_prefix: str = "【丛雨】\n  "):
         self.text_x_offset = x_offset
         self.text_y_offset = y_offset
         self.typing_prefix = typing_prefix
@@ -290,7 +288,7 @@ class Murasame(QLabel):
                 self.input_buffer += commit
             self.preedit_text = preedit
             wrapped = wrap_text(self.input_buffer + self.preedit_text)
-            self.display_text = f"【 LemonQu 】\n  「{wrapped}」"
+            self.display_text = f"【ご主人】\n  「{wrapped}」"
             self.update()
         else:
             super().inputMethodEvent(event)
@@ -327,9 +325,9 @@ class Murasame(QLabel):
                     self.input_buffer = self.input_buffer[:-1]
                     wrapped = wrap_text(self.input_buffer)
                     if not wrapped.strip():
-                        self.display_text = "【 LemonQu 】\n  ..."
+                        self.display_text = "【ご主人】\n  ..."
                     else:
-                        self.display_text = f"【 LemonQu 】\n  「{wrapped}」"
+                        self.display_text = f"【ご主人】\n  「{wrapped}」"
                     self.update()
             else:
                 char = event.text()
@@ -337,9 +335,9 @@ class Murasame(QLabel):
                     self.input_buffer += char
                     wrapped = wrap_text(self.input_buffer)
                     if not wrapped.strip():
-                        self.display_text = "【 LemonQu 】\n  ..."
+                        self.display_text = "【ご主人】\n  ..."
                     else:
-                        self.display_text = f"【 LemonQu 】\n  「{wrapped}」"
+                        self.display_text = f"【ご主人】\n  「{wrapped}」"
                     self.update()
         else:
             super().keyPressEvent(event)

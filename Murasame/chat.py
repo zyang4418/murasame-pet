@@ -5,7 +5,7 @@ import json
 import base64
 import hashlib
 from io import BytesIO
-from utils import get_config
+from .utils import get_config
 
 qwen3_endpoint = get_config()['endpoints']['qwen3']
 qwenvl_endpoint = get_config()['endpoints']['qwenvl']
@@ -207,7 +207,7 @@ def generate_tts(sentence: str, emotion):
 
 
 def split_sentence(sentence: str, history: list[dict]) -> list[str]:
-    sys_prompt = f"你是一个Galgame对话句子分割助手，负责将用户输入的句子进行分割。用户会提供一个句子用于生成Galgame对话，若文本很长，你需要根据句子内容进行合理的分割。不一定是按标点符号分割，而是要考虑上下文和语义，你当然也可以选择不分割。你需要返回一个JSON列表，里面放上分割后的句子。[\"句子1\", \"句子2\"]返回不需要markdown格式的JSON，你也不需要加入```json这样的内容，你只需要返回纯JSON文本即可。"
+    sys_prompt = f"你是一个 GalGame 对话句子分割助手，负责将用户输入的句子进行分割。用户会提供一个句子用于生成 GalGame 对话，若文本很长，你需要根据句子内容进行合理的分割。不一定是按标点符号分割，而是要考虑上下文和语义，你当然也可以选择不分割。你需要返回一个JSON列表，里面放上分割后的句子。[\"句子1\", \"句子2\"]返回不需要markdown格式的JSON，你也不需要加入```json这样的内容，你只需要返回纯JSON文本即可。"
     if history == []:
         history = [{"role": "system", "content": sys_prompt}]
     if history[0]["role"] != "system":
