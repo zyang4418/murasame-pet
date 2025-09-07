@@ -1,10 +1,10 @@
 {
     "endpoints": {
-        "ollama": "http://localhost:11434",
-        "qwen3": "http://localhost:28565/qwen3",
-        "qwenvl": "http://localhost:28565/qwenvl",
-        "murasame": "http://localhost:28565/chat",
-        "murasame-sovits": "http://localhost:9880/tts"
+        "ollama_base": "http://localhost:9999",
+        "qwen3_model": "qwen3:14b",
+        "qwenvl_model": "qwen2.5vl:7b",
+        "murasame_model": "qwen3:14b",
+        "murasame_sovits": "http://localhost:9880/tts"
     },
     "enable_vl": true
 }

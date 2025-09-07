@@ -3,7 +3,7 @@ from PyQt5.QtWidgets import QApplication, QLabel, QSystemTrayIcon, QMenu, QActio
 from PyQt5.QtGui import QPixmap, QIcon, QImage, QFont, QPainter, QFontDatabase, QColor
 from PyQt5.QtCore import Qt, QTimer, QThread, pyqtSignal, QEvent, QRect, QSize, pyqtProperty
 from datetime import datetime
-from Murasame import chat, generate, utils
+from src import chat, generate, utils
 import hashlib
 import cv2
 import threading

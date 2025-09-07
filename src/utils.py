@@ -6,7 +6,6 @@ from os import path
 
 console = Console()
 
-
 def log(event: str, type: str, show: bool = True, save: bool = True):
     back_frame = _getframe().f_back
     if back_frame is not None:
@@ -38,7 +37,6 @@ def log(event: str, type: str, show: bool = True, save: bool = True):
     if save:
         with open('latest.log', 'a', encoding='utf-8') as f:
             f.write(f'{logger}\n')
-
 
 def get_config() -> dict:
     with open("./config.json", "r", encoding="utf-8") as f:

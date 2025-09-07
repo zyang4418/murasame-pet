@@ -2,7 +2,6 @@ import csv
 import cv2
 import numpy as np
 
-
 def generate_fgimage(target, embeddings_layers):
     assert target in ["ムラサメa", "ムラサメb"]
     with open(f"./fgimages/{target}.txt", encoding='utf-16 le') as cf:

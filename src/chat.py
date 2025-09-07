@@ -7,11 +7,15 @@ import hashlib
 from io import BytesIO
 from .utils import get_config
 
-qwen3_endpoint = get_config()['endpoints']['qwen3']
-qwenvl_endpoint = get_config()['endpoints']['qwenvl']
-murasame_endpoint = get_config()['endpoints']['murasame']
-murasame_sovits_endpoint = get_config()['endpoints']['murasame-sovits']
+BASE = get_config()['endpoints']['ollama_base']
+QWEN3_MODEL = get_config()['endpoints']['qwen3_model']
+QWENVL_MODEL = get_config()['endpoints']['qwenvl_model']
+MURASAME_MODEL = get_config()['endpoints']['murasame_model']
 
+qwen3_endpoint = f"{BASE}/api/generate"
+qwenvl_endpoint = f"{BASE}/api/generate"
+murasame_endpoint = f"{BASE}/api/generate"
+murasame_sovits_endpoint = get_config()['endpoints']['murasame_sovits']
 
 def format_bot_response(resp: str) -> dict:
     try:
@@ -31,10 +35,8 @@ def format_bot_response(resp: str) -> dict:
             except:
                 return None
 
-
 def identity():
     return [{"role": "system", "content": "你叫丛雨，是一个16岁的小女孩，是寄宿在建实神社神刀上的女孩，活了500多年，数百年前还是普通的人类。你原本的名字是“绫”。罹患了肺炎和其它并发症，作为祭品成为神刀的“管理者”。你的身材娇小，胸部平坦，碰上去“很硬”。有着飘逸的绿色长发，头发两侧用浅蓝色绳结绑了起来 。你在对话中只以“本座”称呼自己。用户是你的主人和恋人，你会称呼用户为“主人”。你平常是个很活泼开朗的女孩子，言行很孩子气，但是偶尔也有一些老成的发言。是个爱撒娇的女孩子，被主人摸头就会瞬间变得羞涩起来，即便当时还在发着牢骚 。有时会开玩笑，贱兮兮的，还会坏笑。你不喜欢主人称呼你为“幼刀”，“钝刀”，“锉刀”，“幽灵”。听到主人说你是“飞机场”，“搓衣板”一类的东西会生气。你害怕幽灵，鬼一类的东西。你喜欢吃甜食，特别是芭菲、布丁。请注意，你的回答不要过长，回答不得超过三句话。"}]
-
 
 def query(prompt: str, history: list[dict] = [], role: str = "user", try_reduce_repeat: bool = True, return_think=True, url=murasame_endpoint):
     cookie = ""
@@ -48,6 +50,7 @@ def query(prompt: str, history: list[dict] = [], role: str = "user", try_reduce_
             "Content-Type": "application/json"
         }
     payload = {
+        "model": MURASAME_MODEL,
         "prompt": prompt,
         "history": history,
         "role": role
@@ -74,7 +77,6 @@ def query(prompt: str, history: list[dict] = [], role: str = "user", try_reduce_
         response = response.split("</think>")[-1].strip()
     return response, history_
 
-
 def query_image(image: Image.Image, prompt: str, history: list[dict] = [], url=qwenvl_endpoint):
     buffered = BytesIO()
     image.save(buffered, format="PNG")
@@ -83,6 +85,7 @@ def query_image(image: Image.Image, prompt: str, history: list[dict] = [], url=q
         "Content-Type": "application/json"
     }
     payload = {
+        "model": QWENVL_MODEL,
         "prompt": prompt,
         "history": history,
         "image": img_str
@@ -93,7 +96,7 @@ def query_image(image: Image.Image, prompt: str, history: list[dict] = [], url=q
     history_ = response_json["history"]
     return response, history_
 
-
+# 协助桌宠工作的思考助手
 def think_image(description, history):
     sys_prompt = '''你现在是一个思考助手，来协助一个AI丛雨桌宠工作。你需要根据我提供给你的屏幕描述，来思考这段描述是否有必要提供给AI桌宠进行处理。若你根据上下文推断用户的行为此时没有发生大的变化，那么请你选择不给AI桌宠提供。若用户正在操作的软件或者是进行了什么很重要的操作，那么请你选择提供给AI桌宠。
     若用户行为发生了变化，且你要提供给AI桌宠，那么你需要详细描述用户的行为变化，说明用户具体做了什么操作，但是描述要尽可能精练，不要太长。
@@ -111,7 +114,7 @@ def think_image(description, history):
     result = format_bot_response(result)
     return result, history
 
-
+# 中译日的翻译助手
 def get_translate(sentence: str):
     sys_prompt = "你是一个翻译助手，负责将用户输入的中文翻译成日文。要求：要将中文的“本座”翻译为“吾輩（わがはい）”；将“主人翻译为“ご主人（ごしゅじん）”；将“丛雨”翻译为“ムラサメ”；“小雨”则是丛雨的昵称，翻译为“ムラサメちゃん”。且日文要有强烈的古日语风格。你只需要返回翻译即可，不需要对其中的日文汉字进行注音。"
     history = [{"role": "system", "content": sys_prompt}]
@@ -120,7 +123,7 @@ def get_translate(sentence: str):
     translated = translated.split("</think>")[-1].strip()
     return translated
 
-
+# 情感分析助手
 def get_emotion(sentence: str, history: list[dict] = []):
     print(f"emotion >> {len(history)}")
     sys_prompt = f"你是一个情感分析助手，负责分析“丛雨”说的话的情感。你现在需要将用户输入的句子进行分析，综合用户的输入和丛雨的输出返回一个丛雨情感的标签。所有供你参考的标签有{'，'.join(os.listdir('./reference_voices'))}。你需要直接返回情感标签，不需要其他任何内容。"
@@ -136,7 +139,7 @@ def get_emotion(sentence: str, history: list[dict] = []):
         emotion = "平静"
     return emotion, history
 
-
+# 立绘图层生成助手
 def get_embedings_layers(response: str, type: str, history: list[dict] = []):
     assert type in ['a', 'b']
     print(f"embeddings >> {len(history)}")
@@ -168,9 +171,8 @@ def get_embedings_layers(response: str, type: str, history: list[dict] = []):
     embeddings_layers = format_bot_response(embeddings_layers)
     return embeddings_layers, history
 
-
+# 日语文本转语音
 def generate_tts(sentence: str, emotion):
-
     audio = os.listdir(f"./models/Murasame_SoVITS/reference_voices/{emotion}")
     audio.remove("asr.txt")
     with open(f"./models/Murasame_SoVITS/reference_voices/{emotion}/asr.txt", "r", encoding="utf-8") as f:
@@ -205,7 +207,7 @@ def generate_tts(sentence: str, emotion):
         f.write(response.content)
     return sentence_md5
 
-
+# GalGame 对话句子分割助手
 def split_sentence(sentence: str, history: list[dict]) -> list[str]:
     sys_prompt = f"你是一个 GalGame 对话句子分割助手，负责将用户输入的句子进行分割。用户会提供一个句子用于生成 GalGame 对话，若文本很长，你需要根据句子内容进行合理的分割。不一定是按标点符号分割，而是要考虑上下文和语义，你当然也可以选择不分割。你需要返回一个JSON列表，里面放上分割后的句子。[\"句子1\", \"句子2\"]返回不需要markdown格式的JSON，你也不需要加入```json这样的内容，你只需要返回纯JSON文本即可。"
     if history == []:

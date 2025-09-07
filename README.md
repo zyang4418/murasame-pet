@@ -1,12 +1,12 @@
-# MurasamePet
+# Murasame Pet 丛雨桌宠
 
-本项目基于 LemonQu-GIT/MurasamePet，在原有基础上优化代码，并提供尽可能详细的说明文档，方便用户使用。
+本项目基于 LemonQu-GIT/MurasamePet，在原有基础上优化代码，并提供尽可能详细的说明文档，方便用户使用。本项目目前仅提供 Windows 版。
 
-## 部署 Python 3.9.15，conda
+## 如何部署
 
-### 1. 安装包
+### 1. 安装所需包
 
-```shell
+```powershell
 pip install -r ./requirements.txt
 ```
 
@@ -16,15 +16,15 @@ pip install -r ./requirements.txt
 
 在 https://ollama.com/download 下载 Ollama 并安装。
 
-```shell
+```powershell
 ollama pull qwen3:14b
 ollama pull qwen2.5vl:7b
 ```
 
 ### 3. 下载微调模型
 
-```shell
-python ./download.py
+```powershell
+python ./src/download.py
 ```
 
 ### 4. 部署 GPT-SoVITS
@@ -33,7 +33,7 @@ https://github.com/RVC-Boss/GPT-SoVITS
 
 运行 ./models/Murasame_SoVITS 中的两个模型。
 
-```shell
+```powershell
 python api_v2.py
 ```
 
@@ -41,14 +41,14 @@ python api_v2.py
 
 ### 5. 运行本地 API
 
-```shell
+```powershell
 python ./api.py
 ```
 
 ### 6. 运行主程序
 
-```shell
-python ./pet.py
+```powershell
+python ./src/main.py
 ```
 
 ### 注意
