@@ -42,7 +42,7 @@ python api_v2.py
 ### 5. 运行本地 API
 
 ```powershell
-python ./api.py
+python ./src/api.py
 ```
 
 ### 6. 运行主程序

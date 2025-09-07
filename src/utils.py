@@ -1,3 +1,7 @@
+# ==========================================
+# utils.py – 工具集
+# ==========================================
+
 import json
 from rich.console import Console
 from datetime import datetime
@@ -7,6 +11,10 @@ from os import path
 console = Console()
 
 def log(event: str, type: str, show: bool = True, save: bool = True):
+    """
+    带颜色终端 + 文件日志
+    type: info/error/warning/critical/event
+    """
     back_frame = _getframe().f_back
     if back_frame is not None:
         back_filename = path.basename(back_frame.f_code.co_filename)
@@ -39,5 +47,8 @@ def log(event: str, type: str, show: bool = True, save: bool = True):
             f.write(f'{logger}\n')
 
 def get_config() -> dict:
-    with open("./config.json", "r", encoding="utf-8") as f:
+    """
+    读取项目根目录的 config.json
+    """
+    with open("../config.json", "r", encoding="utf-8") as f:
         return json.load(f)

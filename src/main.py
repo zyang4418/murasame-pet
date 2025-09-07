@@ -1,3 +1,8 @@
+# ==========================================
+# main.py – PyQt5 桌面精灵
+# 主要类：Murasame（精灵窗口）、ScreenWorker（截屏后台）、LLMWorker（推理线程）
+# ==========================================
+
 from PyQt5.QtMultimedia import QSound
 from PyQt5.QtWidgets import QApplication, QLabel, QSystemTrayIcon, QMenu, QAction, QGraphicsOpacityEffect
 from PyQt5.QtGui import QPixmap, QIcon, QImage, QFont, QPainter, QFontDatabase, QColor
@@ -13,33 +18,42 @@ import time
 import sys
 import pyautogui
 
+# -------------- 工具：自动换行 ------------------
 def wrap_text(text, width=12):
+    """
+    中文按字断行，width=12 约等于 6 个汉字
+    """
     return '\n'.join(textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False))
 
+# -------------- 主窗口：ムラサメ ------------------
 class Murasame(QLabel):
     def __init__(self):
         super().__init__()
+        # 历史记录
         self.history = chat.identity()
         self.emotion_history = []
         self.embeddings_history = []
 
+        # 淡入淡出用 QLabel + QGraphicsOpacityEffect
         self._fade_bg = QLabel(self)
         self._fade_fg = QLabel(self)
         for lbl in (self._fade_bg, self._fade_fg):
             lbl.setAttribute(Qt.WA_TranslucentBackground)
             lbl.setVisible(False)
             lbl.setGeometry(self.rect())
-            lbl.lower()
+            lbl.lower()     # 放最底层
         self._fade_bg_effect = QGraphicsOpacityEffect(self._fade_bg)
         self._fade_fg_effect = QGraphicsOpacityEffect(self._fade_fg)
         self._fade_bg.setGraphicsEffect(self._fade_bg_effect)
         self._fade_fg.setGraphicsEffect(self._fade_fg_effect)
-        self._fade_anim = None
+        self._fade_anim = None      # QPropertyAnimation
 
+        # 窗口属性：无边框、置顶、透明背景
         self.setWindowFlags(Qt.FramelessWindowHint |
                             Qt.WindowStaysOnTopHint | Qt.Tool)
         self.setAttribute(Qt.WA_TranslucentBackground)
 
+        # 初始立绘：ムラサメb 便衣+微笑+头发
         cv_img = generate.generate_fgimage(target="ムラサメb",
                                            embeddings_layers=[1717, 1475, 1261])
         pixmap = self.cvimg_to_qpixmap(cv_img)
@@ -48,53 +62,67 @@ class Murasame(QLabel):
         self.setPixmap(pixmap)
         self.resize(pixmap.size())
 
+        # 淡入淡出动画参数
         self._xfade_old = None
         self._xfade_new = None
         self._xfade_t = 1.0
         self._xfade_anim = None
 
+        # 鼠标拖拽
         self.mousePressEvent = self.start_move
         self.mouseMoveEvent = self.on_move
         self.offset = None
-        self.touch_head = False
+        self.touch_head = False     # 是否正在摸头
         self.head_press_x = None
 
-        self.display_text = ""
+        # 文字聊天
+        self.display_text = ""      # 当前已显示文字
         self.text_font = QFont()
         self.text_font.setFamily("思源黑体 CN Bold")
         self.text_font.setPointSize(24)
         self.text_x_offset = 0
         self.text_y_offset = 0
-        QFontDatabase.addApplicationFont("./思源黑体Bold.otf")
+        QFontDatabase.addApplicationFont("../思源黑体Bold.otf")
 
-        self.full_text = ""
+        # 打字机计时器
+        self.full_text = ""     # 完整句子
         self.typing_timer = QTimer()
         self.typing_timer.timeout.connect(self._typing_step)
-        self.typing_interval = 40
+        self.typing_interval = 40   # ms
         self._typing_index = 0
-        self.typing_prefix = ""
+        self.typing_prefix = ""     # 如「丛雨：」
 
+        # 中文输入模式
         self.setAttribute(Qt.WA_InputMethodEnabled, True)
         self.input_mode = False
-        self.input_buffer = ""
-        self.preedit_text = ""
+        self.input_buffer = ""      # 已上屏文字
+        self.preedit_text = ""      # 预编辑文字
 
-        self.latest_response = ""
+        self.latest_response = ""   # 最后一次 AI 回复，用于失焦恢复
 
+    # -------------- 窗口激活/失焦 ------------------
     def event(self, event):
+        """
+        失焦时自动退出输入模式，恢复 AI 回复显示
+        激活时暂停截屏线程，避免抢焦点
+        """
         if event.type() == QEvent.WindowActivate:
-            print("activate")
+            print("桌宠窗口激活")
             screen_worker.should_capture = False
             if hasattr(screen_worker, "interrupt_event"):
                 screen_worker.interrupt_event.set()
         elif event.type() == QEvent.WindowDeactivate:
-            print("deactivate")
+            print("桌宠窗口失焦")
             self.input_mode = False
             self.show_text(self.latest_response, typing=True)
             screen_worker.should_capture = True
         return super().event(event)
 
+    # -------------- OpenCV ↔ Qt ------------------
     def cvimg_to_qpixmap(self, cv_img):
+        """
+        BGRA numpy → QPixmap（Qt 可直接显示）
+        """
         if cv_img.shape[2] == 4:
             cv_img_bgra = cv2.cvtColor(cv_img, cv2.COLOR_RGBA2BGRA)
             height, width, channel = cv_img_bgra.shape
@@ -103,7 +131,14 @@ class Murasame(QLabel):
                           bytes_per_line, QImage.Format_RGBA8888)
             return QPixmap.fromImage(qimg)
 
+    # -------------- 鼠标交互 ------------------
     def start_move(self, event):
+        """
+        左键：
+          - 头顶区域(0~156px) → 摸头判定
+          - 下方区域(>277px) → 打开输入框
+        中键：拖拽移动
+        """
         if event.button() == Qt.LeftButton:
             rect = self.rect()
 
@@ -127,6 +162,10 @@ class Murasame(QLabel):
             self.setCursor(Qt.SizeAllCursor)
 
     def on_move(self, event):
+        """
+        摸头滑动超过 50px → 触发“摸头”事件
+        中键拖拽 → 移动窗口
+        """
         if self.touch_head and self.head_press_x is not None:
             if abs(event.x() - self.head_press_x) > 50:
                 self.llm_worker = LLMWorker(
@@ -146,7 +185,15 @@ class Murasame(QLabel):
             self.head_press_x = None
             self.setCursor(Qt.ArrowCursor)
 
-    def show_text(self, text: str, x_offset: int = 140, y_offset: int = -100, typing: bool = True, typing_prefix: str = "【丛雨】\n  "):
+    # -------------- 打字机效果 ------------------
+    def show_text(self, text: str,
+                  x_offset: int = 140,
+                  y_offset: int = -100,
+                  typing: bool = True,
+                  typing_prefix: str = "【丛雨】\n  "):
+        """
+        外部统一入口：支持直接显示 or打字机
+        """
         self.text_x_offset = x_offset
         self.text_y_offset = y_offset
         self.typing_prefix = typing_prefix
@@ -268,6 +315,7 @@ class Murasame(QLabel):
     fadeProgress = pyqtProperty(
         float, fget=_get_fade_progress, fset=_set_fade_progress)
 
+    # -------------- 中文输入法 ------------------
     def inputMethodQuery(self, query):
         if query == Qt.ImMicroFocus:
             rect = self.rect().adjusted(
@@ -282,8 +330,8 @@ class Murasame(QLabel):
 
     def inputMethodEvent(self, event):
         if self.input_mode:
-            commit = event.commitString()
-            preedit = event.preeditString()
+            commit = event.commitString()       # 上屏
+            preedit = event.preeditString()     # 预编辑
             if commit:
                 self.input_buffer += commit
             self.preedit_text = preedit
@@ -293,15 +341,23 @@ class Murasame(QLabel):
         else:
             super().inputMethodEvent(event)
 
+    # -------------- 提交用户输入 ------------------
     def handle_user_input(self):
         if hasattr(screen_worker, "interrupt_event"):
-            screen_worker.interrupt_event.set()
+            screen_worker.interrupt_event.set()     # 打断后台截屏
         self.llm_worker = LLMWorker(
             self.input_buffer, self.history, self.emotion_history, self.embeddings_history, role="user")
         self.llm_worker.finished.connect(self.on_llm_result)
         self.llm_worker.start()
 
+    # -------------- 接收 AI 结果 ------------------
     def on_llm_result(self, result, history, emotion_history, embeddings_history, embeddings_layers, raw_response):
+        """
+        线程回来：
+        1. 播放语音
+        2. 打字机显示
+        3. 换立绘
+        """
         raw_response_md5 = hashlib.md5(raw_response.encode()).hexdigest()
         QSound.play(f"./voices/{raw_response_md5}.wav")
         self.show_text(result, typing=True)
@@ -342,6 +398,7 @@ class Murasame(QLabel):
         else:
             super().keyPressEvent(event)
 
+    # -------------- 立绘切换 + 淡入淡出 ------------------
     def switch_image(self, target, embeddings_layers):
         cv_img = generate.generate_fgimage(
             target=f"ムラサメ{target}", embeddings_layers=embeddings_layers)
@@ -351,12 +408,13 @@ class Murasame(QLabel):
             Qt.KeepAspectRatio, Qt.SmoothTransformation)
 
         pixmap_old = self.pixmap()
-        if pixmap_old is None:
+        if pixmap_old is None:      # 第一次
             self.setPixmap(pixmap_new)
             self.resize(pixmap_new.size())
             self.update()
             return
 
+        # 淡入淡出动画
         self._xfade_old = pixmap_old
         self._xfade_new = pixmap_new
         self._xfade_t = 0.0
@@ -380,15 +438,15 @@ class Murasame(QLabel):
         self._xfade_anim.finished.connect(finish)
         self._xfade_anim.start()
 
-
+# -------------- 后台截屏线程 ------------------
 class ScreenWorker(QThread):
     screen_result = pyqtSignal(str)
 
     def __init__(self, parent=None):
         super().__init__(parent)
         self.running = True
-        self.history = []
-        self.should_capture = False
+        self.history = []       # 视觉历史
+        self.should_capture = False     # 开关
         self.llmworker = None
         self.interrupt_event = threading.Event()
 
@@ -399,9 +457,11 @@ class ScreenWorker(QThread):
                 self.interrupt_event.clear()
                 try:
                     screenshot = pyautogui.screenshot()
+                    # 先让视觉模型描述屏幕
                     sys_prompt = '''你现在要担任一个AI桌宠的视觉识别助手，我会向你提供用户此时的屏幕截图，你要识别用户此时的行为，并进行描述。我会将你的描述以system消息提供给另外一个处理语言的AI模型。'''
                     response, _ = chat.query_image(screenshot, "现在请描述用户此时的行为", [
                         {"role": "system", "content": sys_prompt}])
+                    # 再让“思考助手”决定要不要告诉桌宠
                     des, self.history = chat.think_image(
                         response, self.history)
                     if des['des']:
@@ -415,7 +475,7 @@ class ScreenWorker(QThread):
                         self.llmworker.wait()
                 finally:
                     pass
-            time.sleep(30)
+            time.sleep(30)      # 每 30s 截一次
 
     def stop(self):
         self.running = False
@@ -425,7 +485,7 @@ class ScreenWorker(QThread):
     def on_llm_result(self, *args):
         pass
 
-
+# -------------- 推理线程（防止 UI 卡死） ------------------
 class LLMWorker(QThread):
     finished = pyqtSignal(str, list, list, list, list, str)
 
@@ -441,6 +501,7 @@ class LLMWorker(QThread):
     def run(self):
         try:
             t_start = time.time()
+            # 给 AI 报时
             hour = datetime.now().hour
             minute = datetime.now().minute
             if 0 <= hour < 5:
@@ -458,6 +519,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
+            # 1. 文本生成
             response, history = chat.query(
                 prompt=self.prompt,
                 history=self.history,
@@ -468,12 +530,14 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
+            # 2. 中译日
             translated = chat.get_translate(response)
 
             if self.interrupt_event and self.interrupt_event.is_set():
                 print("LLMWorker interrupted before start")
                 return
 
+            # 3. 情感分析
             emotion, emotion_history = chat.get_emotion(
                 f"用户：{self.prompt}\n丛雨：{response}", self.emotion_history)
 
@@ -481,6 +545,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
+            # 4. 语音合成（线程不阻塞）
             tts_thread = threading.Thread(
                 target=chat.generate_tts, args=(translated, emotion), daemon=True)
             tts_thread.start()
@@ -489,6 +554,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
+            # 5. 立绘图层
             embeddings_layers, embeddings_history = chat.get_embedings_layers(
                 response, "b", self.embeddings_history)
 
@@ -496,6 +562,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
+            # 等待语音文件落地
             raw_response_md5 = hashlib.md5(translated.encode()).hexdigest()
             voice_path = f"./voices/{raw_response_md5}.wav"
 
@@ -513,7 +580,7 @@ class LLMWorker(QThread):
         finally:
             pass
 
-
+# -------------- 菜单：清空历史 ------------------
 def clear_history(parent):
     from PyQt5.QtWidgets import QMessageBox
     reply = QMessageBox.question(parent, "Clear History", "Are you sure you want to clear the history?",
@@ -523,15 +590,16 @@ def clear_history(parent):
         murasame.emotion_history = []
         murasame.embeddings_history = []
 
-
+# -------------- 主入口 ------------------
 if __name__ == "__main__":
     history = chat.identity()
 
     app = QApplication(sys.argv)
     murasame = Murasame()
-    murasame.move(1200, 400)
+    murasame.move(1200, 400)        # 初始位置
     murasame.show()
 
+    # 系统托盘
     tray_icon = QSystemTrayIcon(QIcon("icon.png"), parent=app)
     tray_menu = QMenu()
 
@@ -545,8 +613,10 @@ if __name__ == "__main__":
     tray_icon.setContextMenu(tray_menu)
     tray_icon.show()
 
+    # 启动问候
     murasame.show_text(murasame.latest_response, typing=True)
 
+    # 后台视觉
     if utils.get_config()['enable_vl']:
         screen_worker = ScreenWorker()
 
