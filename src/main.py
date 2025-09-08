@@ -82,7 +82,7 @@ class Murasame(QLabel):
         self.text_font.setPointSize(24)
         self.text_x_offset = 0
         self.text_y_offset = 0
-        QFontDatabase.addApplicationFont("../思源黑体Bold.otf")
+        QFontDatabase.addApplicationFont("../res/思源黑体Bold.otf")
 
         # 打字机计时器
         self.full_text = ""     # 完整句子

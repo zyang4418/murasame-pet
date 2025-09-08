@@ -1,6 +1,10 @@
+***此项目目前正处于开发阶段，敬请期待。***
+
 # Murasame Pet 丛雨桌宠
 
-本项目基于 LemonQu-GIT/MurasamePet，在原有基础上优化代码，并提供尽可能详细的说明文档，方便用户使用。本项目目前仅提供 Windows 版。
+本项目基于 LemonQu-GIT/MurasamePet，在原有基础上优化代码，并提供尽可能详细的说明文档，方便用户使用。
+
+鉴于本地算力有限，推荐以云端模型 OpenAI API 调用的方式运行，相关配置需要放在 `config.json`。
 
 ## 如何部署
 
@@ -10,40 +14,26 @@
 pip install -r ./requirements.txt
 ```
 
-### 2. 安装 Ollama（本地运行模型必须）
-
-若没有云端可用的 OpenAI 接口（Qwen3:14b, Qwen2.5vl:7b)，那么这步是必须的，即在本地运行所有模型。
-
-在 https://ollama.com/download 下载 Ollama 并安装。
-
-```powershell
-ollama pull qwen3:14b
-ollama pull qwen2.5vl:7b
-```
-
-### 3. 下载微调模型
+### 2. 下载微调模型
 
 ```powershell
 python ./src/download.py
 ```
 
-### 4. 部署 GPT-SoVITS
+### 3. 下载并部署 GPT-SoVITS
 
-https://github.com/RVC-Boss/GPT-SoVITS
+前往 [GPT-SoVITS 项目](https://github.com/RVC-Boss/GPT-SoVITS) 下载整合包，按照提示部署到电脑上。
 
-运行 ./models/Murasame_SoVITS 中的两个模型。
+### 4. 创建 config.json 配置文件
 
-```powershell
-python api_v2.py
-```
+根据 [模板](./docs/cn/config_template.md) 中的提示创建 config.json 文件。
 
-注意，`api_v2.py` 为 `GPT-SoVITS` Repository 中的文件 (https://github.com/RVC-Boss/GPT-SoVITS/blob/main/api_v2.py)。
+**注意：**
+`config.json` 包含 API Key 等敏感信息，请勿分享给他人。此文件不被 Git 跟踪。
 
-### 5. 运行本地 API
+### 5. 运行微调模型
 
-```powershell
-python ./src/api.py
-```
+前往 GPT-SoVITS 运行 ./models/Murasame_SoVITS 中的两个模型。
 
 ### 6. 运行主程序
 
@@ -51,10 +41,6 @@ python ./src/api.py
 python ./src/main.py
 ```
 
-### 注意
-
-若 Ollama / api.py 不在本地运行，那么需要在 `./config.json`中修改相关 endpoint 地址。
-
 ## 如何使用
 
-点击丛雨下半部分可以输入内容，长按鼠标按住丛雨的头部并左右移动可以摸头…
+点击丛雨下半部分可以输入内容，长按丛雨的脑袋并左右移动可以摸头。
