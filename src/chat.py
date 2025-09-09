@@ -1,35 +1,40 @@
 # ==========================================
-# chat.py – 桌宠智能中枢
+# chat.py – OpenAI API 对接模块
 # 提供：人设、翻译、情感、立绘图层、TTS、句子分割
 # ==========================================
 
-from PIL import Image
-import requests
 import os
+from openai import OpenAI
+from .utils import get_config
+import requests
 import json
 import base64
 import hashlib
-from io import BytesIO
-from .utils import get_config
+import pyautogui
 
-# 读取配置文件中的 ollama 地址与模型名
-BASE = get_config()['endpoints']['ollama_base']
-QWEN3_MODEL = get_config()['endpoints']['qwen3_model']
-QWENVL_MODEL = get_config()['endpoints']['qwenvl_model']
-MURASAME_MODEL = get_config()['endpoints']['murasame_model']
+# 读取配置文件 config.json
+BASE = get_config()['endpoints']['base_url']
+API_KEY = get_config()['endpoints']['api_key']
+MODEL_NAME = get_config()['endpoints']['model_id']
+LOCAL_BASE = get_config()['endpoints']['local_base_url']
+LOCAL_API_KEY = get_config()['endpoints']['local_api_key']
+LOCAL_MODEL_NAME = get_config()['endpoints']['local_model_id']
 
 # 各模型对应的 ollama 生成接口
 qwen3_endpoint = f"{BASE}/api/generate"
-qwenvl_endpoint = f"{BASE}/api/generate"
+qwenv_endpoint = f"{BASE}/api/generate"
 murasame_endpoint = f"{BASE}/api/generate"
-murasame_sovits_endpoint = get_config()['endpoints']['murasame_sovits']
+murasame_sovits_endpoint = get_config()['endpoints']['sovits_base_url']
 
-# -------------- 小工具 ------------------
+# 初始化客户端，从 config.json 中读取 Base URL 和 API Key
+client = OpenAI(
+    base_url=f"{BASE}",
+    api_key=f"{API_KEY}",
+)
+
+# 后端可能返回 markdown/json 混合，这里暴力提取纯 json
 def format_bot_response(resp: str) -> dict:
-    """
-    后端可能返回 markdown/json 混合，这里暴力提取纯 json
-    返回 dict 或 None
-    """
+    # 可以设置 API 进行结构化输出，无需此函数提取 json
     try:
         answer = json.loads(resp)
         return answer
@@ -76,7 +81,7 @@ def query(prompt: str,
             "Content-Type": "application/json"
         }
     payload = {
-        "model": MURASAME_MODEL,
+        "model": f"{LOCAL_MODEL_NAME}",
         "prompt": prompt,
         "history": history,
         "role": role
@@ -105,31 +110,69 @@ def query(prompt: str,
         response = response.split("</think>")[-1].strip()
     return response, history_
 
-# -------------- 图片理解 ------------------
-def query_image(image: Image.Image, prompt: str, history: list[dict] = [], url=qwenvl_endpoint):
-    """
-    把 PIL 图片转 base64，调用视觉模型
-    返回 (response, history)
-    """
-    buffered = BytesIO()
-    image.save(buffered, format="PNG")
-    img_str = base64.b64encode(buffered.getvalue()).decode()
-    headers = {
-        "Content-Type": "application/json"
-    }
-    payload = {
-        "model": QWENVL_MODEL,
-        "prompt": prompt,
-        "history": history,
-        "image": img_str
-    }
-    response_json = requests.post(
-        url, json=payload, headers=headers).json()
-    response = response_json["response"]
-    history_ = response_json["history"]
-    return response, history_
+# 图片理解：请求模型描述屏幕上的内容
+def describe_image():
+    # 截屏并保存到上级目录 temp.png 文件
+    screen_image = pyautogui.screenshot()
+    screen_image.save('../temp.png')
 
-# -------------- 桌宠视觉助手 ------------------
+    # 初始化客户端，获取 Base URL 和 API_Key
+    client = OpenAI(
+        base_url=f"{BASE}",
+        api_key=f"{API_KEY}",
+    )
+
+    # 定义方法将指定路径图片转为 Base64 编码
+    def encode_image(image_path):
+        with open(image_path, "rb") as image_file:
+            return base64.b64encode(image_file.read()).decode('utf-8')
+
+    # 需要传给大模型的图片
+    image_path = "../temp.png"
+
+    # 将图片转为 Base64 编码
+    base64_image = encode_image(image_path)
+
+    response = client.chat.completions.create(
+        model=f"{MODEL_NAME}",
+        messages=[
+            {
+                "role": "system",
+                "content": [
+                    {
+                        "type": "text",
+                        "text": "你现在要担任一个 AI 桌宠的视觉识别助手，用户会向你提供此时的屏幕截图，你要识别用户此时的行为，并进行描述。用户会将你的描述以 system 消息提供给另外一个处理语言的 AI 模型。",
+                    },
+                ],
+            },
+            {
+                "role": "user",
+                "content": [
+                    {
+                        "type": "image_url",
+                        "image_url": {
+                            "url": f"data:image/png;base64,{base64_image}"
+                        },
+                    },
+                    {
+                        "type": "text",
+                        "text": "请描述用户此时的行为。",
+                    },
+                ],
+            }
+        ],
+        extra_body={
+            "thinking": {
+                "type": "disabled",  # 不使用深度思考能力
+                # "type": "enabled", # 使用深度思考能力
+                # "type": "auto", # 模型自行判断是否使用深度思考能力
+            }
+        },
+    )
+
+    return response.choices[0].message.content
+
+# 检查屏幕上的内容是否存在有效变化
 def think_image(description, history):
     """
     决定“屏幕描述”是否值得告诉桌宠，避免刷屏

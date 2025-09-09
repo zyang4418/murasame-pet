@@ -30,7 +30,7 @@ class Murasame(QLabel):
     def __init__(self):
         super().__init__()
         # 历史记录
-        self.history = chat.identity()
+        self.history = chat.identity()                                                                  # 第 1 处 chat
         self.emotion_history = []
         self.embeddings_history = []
 
@@ -457,11 +457,11 @@ class ScreenWorker(QThread):
                 self.interrupt_event.clear()
                 try:
                     screenshot = pyautogui.screenshot()
-                    # 先让视觉模型描述屏幕
+                    # 先让视觉模型描述屏幕                                                                   # 第 2 处 chat
                     sys_prompt = '''你现在要担任一个AI桌宠的视觉识别助手，我会向你提供用户此时的屏幕截图，你要识别用户此时的行为，并进行描述。我会将你的描述以system消息提供给另外一个处理语言的AI模型。'''
                     response, _ = chat.query_image(screenshot, "现在请描述用户此时的行为", [
                         {"role": "system", "content": sys_prompt}])
-                    # 再让“思考助手”决定要不要告诉桌宠
+                    # 再让“思考助手”决定要不要告诉桌宠                                                         # 第 3 处 chat
                     des, self.history = chat.think_image(
                         response, self.history)
                     if des['des']:
@@ -519,7 +519,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
-            # 1. 文本生成
+            # 1. 文本生成                                                                                 # 第 4 处 chat
             response, history = chat.query(
                 prompt=self.prompt,
                 history=self.history,
@@ -531,13 +531,13 @@ class LLMWorker(QThread):
                 return
 
             # 2. 中译日
-            translated = chat.get_translate(response)
+            translated = chat.get_translate(response)                                                   # 第 5 处 chat
 
             if self.interrupt_event and self.interrupt_event.is_set():
                 print("LLMWorker interrupted before start")
                 return
 
-            # 3. 情感分析
+            # 3. 情感分析                                                                                 # 第 6 处 chat
             emotion, emotion_history = chat.get_emotion(
                 f"用户：{self.prompt}\n丛雨：{response}", self.emotion_history)
 
@@ -545,7 +545,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
-            # 4. 语音合成（线程不阻塞）
+            # 4. 语音合成（线程不阻塞）                                                                      # 第 7 处 chat
             tts_thread = threading.Thread(
                 target=chat.generate_tts, args=(translated, emotion), daemon=True)
             tts_thread.start()
@@ -554,7 +554,7 @@ class LLMWorker(QThread):
                 print("LLMWorker interrupted before start")
                 return
 
-            # 5. 立绘图层
+            # 5. 立绘图层                                                                                 # 第 8 处 chat
             embeddings_layers, embeddings_history = chat.get_embedings_layers(
                 response, "b", self.embeddings_history)
 
@@ -586,13 +586,13 @@ def clear_history(parent):
     reply = QMessageBox.question(parent, "Clear History", "Are you sure you want to clear the history?",
                                  QMessageBox.Ok | QMessageBox.Cancel)
     if reply == QMessageBox.Ok:
-        murasame.history = chat.identity()
+        murasame.history = chat.identity()                                                              # 第 9 处 chat
         murasame.emotion_history = []
         murasame.embeddings_history = []
 
 # -------------- 主入口 ------------------
 if __name__ == "__main__":
-    history = chat.identity()
+    history = chat.identity()                                                                           # 第 10 处 chat
 
     app = QApplication(sys.argv)
     murasame = Murasame()
@@ -600,7 +600,7 @@ if __name__ == "__main__":
     murasame.show()
 
     # 系统托盘
-    tray_icon = QSystemTrayIcon(QIcon("icon.png"), parent=app)
+    tray_icon = QSystemTrayIcon(QIcon("./res/icon.png"), parent=app)
     tray_menu = QMenu()
 
     clear_action = QAction("Clear History")

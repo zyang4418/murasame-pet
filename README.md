@@ -2,9 +2,12 @@
 
 # Murasame Pet 丛雨桌宠
 
-本项目基于 LemonQu-GIT/MurasamePet，在原有基础上优化代码，并提供尽可能详细的说明文档，方便用户使用。
+本项目基于 [LemonQu-GIT/MurasamePet](https://github.com/LemonQu-GIT/MurasamePet)，在原有基础上优化代码，并提供尽可能详细的说明文档，方便用户使用。
 
 鉴于本地算力有限，推荐以云端模型 OpenAI API 调用的方式运行，相关配置需要放在 `config.json`。
+
+目前的计划是：丛雨文本模型尽可能在本地运行，如果本地没有条件则使用通用文本模型。通用文本模型和视觉模型使用云端 API。丛雨语音模型在本地运行。
+另外，还将实现角色切换功能，通过替换角色配置文件实现。该功能需要更多时间。
 
 ## 如何部署
 
@@ -14,7 +17,7 @@
 pip install -r ./requirements.txt
 ```
 
-### 2. 下载微调模型
+### 2. 下载语音模型
 
 ```powershell
 python ./src/download.py
@@ -31,9 +34,9 @@ python ./src/download.py
 **注意：**
 `config.json` 包含 API Key 等敏感信息，请勿分享给他人。此文件不被 Git 跟踪。
 
-### 5. 运行微调模型
+### 5. 运行语音模型
 
-前往 GPT-SoVITS 运行 ./models/Murasame_SoVITS 中的两个模型。
+前往 GPT-SoVITS 运行 ./models/Murasame_SoVITS 中的模型。
 
 ### 6. 运行主程序
 
