@@ -1,6 +1,5 @@
 # ==========================================
-# main.py – PyQt5 桌面精灵
-# 主要类：Murasame（精灵窗口）、ScreenWorker（截屏后台）、LLMWorker（推理线程）
+# 主要类：Pet（主窗口）、ScreenWorker（截屏后台）、LLMWorker（推理线程）
 # ==========================================
 
 from PyQt5.QtMultimedia import QSound
@@ -16,7 +15,6 @@ import textwrap
 import os
 import time
 import sys
-import pyautogui
 
 # -------------- 工具：自动换行 ------------------
 def wrap_text(text, width=12):
@@ -26,12 +24,11 @@ def wrap_text(text, width=12):
     return '\n'.join(textwrap.wrap(text, width=width, break_long_words=True, break_on_hyphens=False))
 
 # -------------- 主窗口：ムラサメ ------------------
-class Murasame(QLabel):
+class Pet(QLabel):
     def __init__(self):
         super().__init__()
         # 历史记录
         self.history = chat.identity()                                                                  # 第 1 处 chat
-        self.emotion_history = []
         self.embeddings_history = []
 
         # 淡入淡出用 QLabel + QGraphicsOpacityEffect
@@ -451,19 +448,21 @@ class ScreenWorker(QThread):
         self.interrupt_event = threading.Event()
 
     def run(self):
+        self.history = [{"role": "system", "content": '''你现在是一个思考助手，来协助一个AI丛雨桌宠工作。你需要根据我提供给你的屏幕描述，来思考这段描述是否有必要提供给AI桌宠进行处理。若你根据上下文推断用户的行为此时没有发生大的变化，那么请你选择不给AI桌宠提供。若用户正在操作的软件或者是进行了什么很重要的操作，那么请你选择提供给AI桌宠。
+    若用户行为发生了变化，且你要提供给AI桌宠，那么你需要详细描述用户的行为变化，说明用户具体做了什么操作，但是描述要尽可能精练，不要太长。
+    这个桌宠是一个绿色头发的小女孩，名叫丛雨，你应该可以在屏幕上看到她的形象。
+    若你觉得不需要提供给AI桌宠，那么请回复一个JSON {"des": null}。若你觉得需要提供，那么请回复一个JSON {"des": "具体描述内容以及进行的操作"}。
+    请注意，若你希望提供给AI桌宠进行处理，那么请确保这条描述与之前我提供的描述有很大不同，否则请不要提供来浪费我的资源。
+    '''}]
         while self.running:
             print(self.should_capture, "should_capture")
             if self.should_capture:
                 self.interrupt_event.clear()
                 try:
-                    screenshot = pyautogui.screenshot()
                     # 先让视觉模型描述屏幕                                                                   # 第 2 处 chat
-                    sys_prompt = '''你现在要担任一个AI桌宠的视觉识别助手，我会向你提供用户此时的屏幕截图，你要识别用户此时的行为，并进行描述。我会将你的描述以system消息提供给另外一个处理语言的AI模型。'''
-                    response, _ = chat.query_image(screenshot, "现在请描述用户此时的行为", [
-                        {"role": "system", "content": sys_prompt}])
+                    response = chat.describe_image()
                     # 再让“思考助手”决定要不要告诉桌宠                                                         # 第 3 处 chat
-                    des, self.history = chat.think_image(
-                        response, self.history)
+                    des, self.history = chat.think_image(response, self.history)
                     if des['des']:
                         print("scr worker：", des['des'])
                         self.llmworker = LLMWorker(
@@ -564,7 +563,7 @@ class LLMWorker(QThread):
 
             # 等待语音文件落地
             raw_response_md5 = hashlib.md5(translated.encode()).hexdigest()
-            voice_path = f"./voices/{raw_response_md5}.wav"
+            voice_path = f"../voices/{raw_response_md5}.wav"
 
             while not os.path.exists(voice_path):
                 time.sleep(0.1)
@@ -580,8 +579,10 @@ class LLMWorker(QThread):
         finally:
             pass
 
-# -------------- 菜单：清空历史 ------------------
 def clear_history(parent):
+    """
+    用于清空历史对话记录的函数。
+    """
     from PyQt5.QtWidgets import QMessageBox
     reply = QMessageBox.question(parent, "Clear History", "Are you sure you want to clear the history?",
                                  QMessageBox.Ok | QMessageBox.Cancel)
@@ -590,17 +591,16 @@ def clear_history(parent):
         murasame.emotion_history = []
         murasame.embeddings_history = []
 
-# -------------- 主入口 ------------------
 if __name__ == "__main__":
     history = chat.identity()                                                                           # 第 10 处 chat
 
     app = QApplication(sys.argv)
-    murasame = Murasame()
+    murasame = Pet()
     murasame.move(1200, 400)        # 初始位置
     murasame.show()
 
     # 系统托盘
-    tray_icon = QSystemTrayIcon(QIcon("./res/icon.png"), parent=app)
+    tray_icon = QSystemTrayIcon(QIcon("../res/icon.png"), parent=app)
     tray_menu = QMenu()
 
     clear_action = QAction("Clear History")
